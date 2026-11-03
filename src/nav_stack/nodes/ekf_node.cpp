@@ -10,6 +10,7 @@ class EkfNode : public rclcpp::Node {
  public:
   EkfNode() : Node("ekf") {
     nav_stack::Ekf::Params p;
+    p.q_w = declare_parameter("q_w", 0.1);
     p.r_wheel_v = std::pow(declare_parameter("wheel_v_std", 0.02), 2);
     p.r_wheel_w = std::pow(declare_parameter("wheel_w_std", 0.2), 2);
     p.r_gyro = std::pow(declare_parameter("gyro_std", 0.01), 2);
