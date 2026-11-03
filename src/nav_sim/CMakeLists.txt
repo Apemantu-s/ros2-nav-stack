@@ -3,6 +3,6 @@ project(nav_sim)
 
 find_package(ament_cmake REQUIRED)
 
-install(DIRECTORY models worlds DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY models worlds config launch DESTINATION share/${PROJECT_NAME})
 
 ament_package()

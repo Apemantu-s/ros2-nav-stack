@@ -9,6 +9,7 @@ import argparse
 import json
 import math
 import random
+from collections import deque
 
 HEADER = """<?xml version="1.0"?>
 <sdf version="1.9">
@@ -25,9 +26,15 @@ HEADER = """<?xml version="1.0"?>
   </plugin>
   <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
   <plugin filename="gz-sim-contact-system" name="gz::sim::systems::Contact"/>
+  <scene>
+    <ambient>0.6 0.6 0.6 1</ambient>
+    <background>0.7 0.8 0.9 1</background>
+  </scene>
   <light type="directional" name="sun">
     <cast_shadows>false</cast_shadows>
     <pose>0 0 10 0 0 0</pose>
+    <diffuse>1 1 1 1</diffuse>
+    <specular>0.2 0.2 0.2 1</specular>
     <direction>-0.5 0.1 -0.9</direction>
   </light>
   <model name="ground">
@@ -35,7 +42,7 @@ HEADER = """<?xml version="1.0"?>
     <link name="link">
       <collision name="c"><geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry></collision>
       <visual name="v"><geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
-        <material><ambient>0.8 0.8 0.8 1</ambient></material></visual>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.8 0.8 0.8 1</diffuse></material></visual>
     </link>
   </model>
 """
@@ -46,7 +53,7 @@ BOX = """  <model name="{name}">
     <link name="link">
       <collision name="c"><geometry><box><size>{sx:.3f} {sy:.3f} {sz:.3f}</size></box></geometry></collision>
       <visual name="v"><geometry><box><size>{sx:.3f} {sy:.3f} {sz:.3f}</size></box></geometry>
-        <material><ambient>0.6 0.3 0.2 1</ambient></material></visual>
+        <material><ambient>0.2 0.6 0.2 1</ambient><diffuse>0.2 0.6 0.2 1</diffuse></material></visual>
     </link>
   </model>
 """
@@ -57,7 +64,7 @@ CYL = """  <model name="{name}">
     <link name="link">
       <collision name="c"><geometry><cylinder><radius>{r:.3f}</radius><length>0.8</length></cylinder></geometry></collision>
       <visual name="v"><geometry><cylinder><radius>{r:.3f}</radius><length>0.8</length></cylinder></geometry>
-        <material><ambient>0.2 0.6 0.2 1</ambient></material></visual>
+        <material><ambient>0.6 0.3 0.2 1</ambient><diffuse>0.6 0.3 0.2 1</diffuse></material></visual>
     </link>
   </model>
 """
@@ -95,15 +102,55 @@ def clearance(px, py, obstacles):
     return min(dist_to_obstacle(px, py, o) for o in obstacles)
 
 
+def reachable(start, goal, obstacles, size, robot_r=0.25, res=0.05):
+    """can a robot of radius robot_r get from start to goal?
+    flood fill (BFS) over a grid where cells closer than robot_r to an
+    obstacle count as blocked"""
+    half = size / 2
+    n = int(size / res)
+
+    def cell(x, y):
+        return int((x + half) / res), int((y + half) / res)
+
+    def free(i, j):
+        x = -half + (i + 0.5) * res
+        y = -half + (j + 0.5) * res
+        return clearance(x, y, obstacles) > robot_r
+
+    s, g = cell(start[0], start[1]), cell(goal[0], goal[1])
+    seen = {s}
+    queue = deque([s])
+    while queue:
+        i, j = queue.popleft()
+        if (i, j) == g:
+            return True
+        for ni, nj in [(i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)]:
+            if 0 <= ni < n and 0 <= nj < n and (ni, nj) not in seen and free(ni, nj):
+                seen.add((ni, nj))
+                queue.append((ni, nj))
+    return False
+
+
 def make(seed, size, n_obs):
     rng = random.Random(seed)
+    # keep making worlds until one can be solved. the check uses no
+    # randomness, so the same seed still always gives the same world
+    while True:
+        w = make_one(rng, seed, size, n_obs)
+        if reachable((w["start"]["x"], w["start"]["y"]), (w["goal"]["x"], w["goal"]["y"]),
+                     w["obstacles"], size):
+            return w
+
+
+def make_one(rng, seed, size, n_obs):
     half = size / 2
     obstacles = []
-    t = 0.2 
+    t = 0.2  # wall thickness
     for name, x, y, sx, sy in [("wall_n", 0, half, size + t, t), ("wall_s", 0, -half, size + t, t),
                                ("wall_e", half, 0, t, size + t), ("wall_w", -half, 0, t, size + t)]:
         obstacles.append(dict(type="box", name=name, x=x, y=y, sx=sx, sy=sy, sz=0.8, yaw=0.0))
 
+    # start and goal at least 6m apart
     while True:
         sx_, sy_ = rng.uniform(-half + 1, half - 1), rng.uniform(-half + 1, half - 1)
         gx, gy = rng.uniform(-half + 1, half - 1), rng.uniform(-half + 1, half - 1)
@@ -120,6 +167,7 @@ def make(seed, size, n_obs):
                      yaw=rng.uniform(-math.pi, math.pi))
         else:
             o = dict(type="cyl", name=f"cyl_{len(obstacles)}", x=x, y=y, r=rng.uniform(0.15, 0.5))
+        # keep obstacles away from start and goal
         if dist_to_obstacle(sx_, sy_, o) < 0.7 or dist_to_obstacle(gx, gy, o) < 0.7:
             continue
         obstacles.append(o)
