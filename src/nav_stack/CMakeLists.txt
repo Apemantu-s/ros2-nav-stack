@@ -25,14 +25,18 @@ install(TARGETS ekf_node DESTINATION lib/${PROJECT_NAME})
 
 find_package(Eigen3 REQUIRED)
 
-add_library(nav_core src/ekf.cpp)
+add_library(nav_core 
+  src/ekf.cpp
+  src/grid.cpp)
 target_include_directories(nav_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(nav_core Eigen3::Eigen)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(test_nav_core test/test_ekf.cpp)
+  ament_add_gtest(test_nav_core 
+    test/test_mapper.cpp
+    test/test_ekf.cpp)
   target_link_libraries(test_nav_core nav_core)
 endif()
 
