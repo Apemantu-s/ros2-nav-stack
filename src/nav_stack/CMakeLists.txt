@@ -34,6 +34,10 @@ foreach(node wheel_odom_node ekf_node mapper_node)
   install(TARGETS ${node} DESTINATION lib/${PROJECT_NAME})
 endforeach()
 
+add_executable(bench_planners tools/bench_planners.cpp)
+target_link_libraries(bench_planners nav_core)
+install(TARGETS bench_planners DESTINATION lib/${PROJECT_NAME})
+
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_nav_core
