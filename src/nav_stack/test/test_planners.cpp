@@ -37,4 +37,23 @@ TEST(CostMap, SegmentFree) {
   EXPECT_FALSE(cm.segmentFree(2, 2, 8, 2));
   EXPECT_TRUE(cm.segmentFree(2, 2, 2, 8));
   EXPECT_TRUE(cm.segmentFree(2, 9, 8, 9));
+
+
+TEST(AStar, GoesAroundWall) {
+  CostMap cm = wallMap();
+  auto r = planAStar(cm, {2, 2}, {8, 2});
+  ASSERT_TRUE(r.success);
+  // straight line = 6m, going around is way longer
+  EXPECT_GT(pathLength(r.path), 12.0);
+  for (size_t i = 1; i < r.path.size(); ++i)
+    EXPECT_TRUE(cm.segmentFree(r.path[i - 1].x, r.path[i - 1].y, r.path[i].x, r.path[i].y));
+}
+
+TEST(AStar, GoalInWallFails) {
+  CostMap cm = wallMap();
+  EXPECT_FALSE(planAStar(cm, {2, 2}, {5, 2}).success);
+}
+
+
+
 }

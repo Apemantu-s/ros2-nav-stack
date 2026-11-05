@@ -16,7 +16,7 @@ double pathLength(const std::vector<Point>& path);
 class CostMap {
  public:
   struct Params {
-    int occupied_threshold = 65;
+    int occupied_threshold = 65; 
     double lethal_radius = 0.24;
     double cost_radius = 0.6;
     double cost_scale = 3.0;
@@ -39,5 +39,30 @@ class CostMap {
   std::vector<float> cost_;
 };
 
+struct PlanResult {
+  bool success = false;
+  std::vector<Point> path;
+  double time_ms = 0.0;
+  int expansions = 0;
+};
+
+PlanResult planAStar(const CostMap& map, Point start, Point goal);
+
+struct RrtStarParams {
+  int max_iterations = 5000;
+  double step = 0.3;
+  double goal_bias = 0.1;
+  double goal_tolerance = 0.2;
+  double rewire_gamma = 2.0;
+  double max_rewire_radius = 1.0;
+  double time_budget_ms = 300.0;
+  bool stop_at_first_solution = false;
+  bool shortcut = true;
+};
+
+std::vector<Point> shortcutPath(const CostMap& map, const std::vector<Point>& path);
+
+PlanResult planRrtStar(const CostMap& map, Point start, Point goal, const RrtStarParams& p,
+                       std::mt19937& rng);
 
 }
