@@ -17,15 +17,15 @@ find_package(Eigen3 REQUIRED)
 
 set(ros_deps rclcpp nav_msgs sensor_msgs geometry_msgs tf2_ros)
 
-
-add_library(nav_core 
+add_library(nav_core
   src/ekf.cpp
   src/grid.cpp
-  src/costmap.cpp)
+  src/costmap.cpp
+  src/astar.cpp
+  src/rrt_star.cpp)
 target_include_directories(nav_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(nav_core Eigen3::Eigen)
-
 
 foreach(node wheel_odom_node ekf_node mapper_node)
   add_executable(${node} nodes/${node}.cpp)
@@ -34,12 +34,12 @@ foreach(node wheel_odom_node ekf_node mapper_node)
   install(TARGETS ${node} DESTINATION lib/${PROJECT_NAME})
 endforeach()
 
-
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(test_nav_core 
+  ament_add_gtest(test_nav_core
+    test/test_ekf.cpp
     test/test_mapper.cpp
-    test/test_ekf.cpp)
+    test/test_planners.cpp)
   target_link_libraries(test_nav_core nav_core)
 endif()
 
