@@ -17,8 +17,10 @@ class MapperNode : public rclcpp::Node {
     info.origin_x = info.origin_y = -size / 2;     // centred on the start
     lidar_x_ = declare_parameter("lidar_x", 0.0);
     frame_ = declare_parameter("frame_id", std::string("odom"));
-    mapper_ = std::make_unique<nav_stack::OccupancyMapper>(info, nav_stack::OccupancyMapper::Params{});
-
+    nav_stack::OccupancyMapper::Params mp;
+    mp.max_range = declare_parameter("max_range", 5.0); 
+    mapper_ = std::make_unique<nav_stack::OccupancyMapper>(info, mp);
+    
     auto qos = rclcpp::QoS(1).transient_local().reliable();
     map_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>("map", qos);
     pose_sub_ = create_subscription<nav_msgs::msg::Odometry>(

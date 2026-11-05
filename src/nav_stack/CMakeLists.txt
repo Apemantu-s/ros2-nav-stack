@@ -20,7 +20,8 @@ set(ros_deps rclcpp nav_msgs sensor_msgs geometry_msgs tf2_ros)
 
 add_library(nav_core 
   src/ekf.cpp
-  src/grid.cpp)
+  src/grid.cpp
+  src/costmap.cpp)
 target_include_directories(nav_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(nav_core Eigen3::Eigen)

@@ -49,8 +49,6 @@ void OccupancyMapper::addScan(double sx, double sy, double syaw, double angle_mi
     double r = ranges[i];
     bool hit = true;
     if (!std::isfinite(r) || r >= p_.max_range) {
-      // no hit or a really long one. long ones can be the floor if the robot
-      // pitches. only use them to clear space close by
       r = p_.free_range_for_max;
       hit = false;
     }
@@ -75,4 +73,4 @@ std::vector<int8_t> OccupancyMapper::toOccupancy() const {
   return out;
 }
 
-}  // namespace nav_stack
+}
