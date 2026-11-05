@@ -12,10 +12,11 @@ find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-set(ros_deps rclcpp nav_msgs sensor_msgs geometry_msgs tf2_ros)
+set(ros_deps rclcpp nav_msgs sensor_msgs geometry_msgs std_msgs tf2_ros)
 
 add_library(nav_core
   src/ekf.cpp
@@ -27,7 +28,7 @@ target_include_directories(nav_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(nav_core Eigen3::Eigen)
 
-foreach(node wheel_odom_node ekf_node mapper_node)
+foreach(node wheel_odom_node ekf_node mapper_node planner_node)
   add_executable(${node} nodes/${node}.cpp)
   target_link_libraries(${node} nav_core)
   ament_target_dependencies(${node} ${ros_deps})
