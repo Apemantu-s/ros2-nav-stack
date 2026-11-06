@@ -35,7 +35,6 @@ Cmd PurePursuit::compute(const std::vector<Point>& path, const Pose2D& pose) {
   if (path.empty()) return cmd;
   const size_t ci = closestIndex(path, pose);
 
-  // find the point one lookahead away
   size_t ti = ci;
   while (ti + 1 < path.size() &&
          std::hypot(path[ti].x - pose.x, path[ti].y - pose.y) < p_.lookahead)

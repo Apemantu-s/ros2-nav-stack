@@ -24,7 +24,8 @@ add_library(nav_core
   src/costmap.cpp
   src/astar.cpp
   src/rrt_star.cpp
-  src/pure_pursuit.cpp)
+  src/pure_pursuit.cpp
+  src/mpc.cpp)
 target_include_directories(nav_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(nav_core Eigen3::Eigen)
@@ -39,6 +40,10 @@ endforeach()
 add_executable(bench_planners tools/bench_planners.cpp)
 target_link_libraries(bench_planners nav_core)
 install(TARGETS bench_planners DESTINATION lib/${PROJECT_NAME})
+
+add_executable(compare_controllers tools/compare_controllers.cpp)
+target_link_libraries(compare_controllers nav_core)
+install(TARGETS compare_controllers DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)

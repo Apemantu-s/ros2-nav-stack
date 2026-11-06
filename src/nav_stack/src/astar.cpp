@@ -6,8 +6,6 @@
 
 namespace nav_stack {
 
-// distance on an 8-connected grid if there were no obstacles (octile distance).
-// never overestimates, so A* still finds the shortest path
 static float heuristic(int x0, int y0, int x1, int y1) {
   int dx = std::abs(x1 - x0);
   int dy = std::abs(y1 - y0);
@@ -31,7 +29,6 @@ PlanResult planAStar(const CostMap& map, Point start, Point goal) {
   std::vector<int> came_from(n, -1);
   std::vector<bool> done(n, false);
 
-  // priority queue of (f = g + h, cell index). std::greater makes it pop the smallest f
   using Entry = std::pair<float, int>;
   std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> open;
 
@@ -40,8 +37,6 @@ PlanResult planAStar(const CostMap& map, Point start, Point goal) {
   cost_so_far[start_idx] = 0;
   open.push({heuristic(sx, sy, gx, gy), start_idx});
 
-  // robot can end up inside the lethal zone near a wall (drift).
-  // let it move out of the lethal zone but never into it
   bool start_lethal = map.lethal(sx, sy);
 
   // 8 neighbors
@@ -51,7 +46,7 @@ PlanResult planAStar(const CostMap& map, Point start, Point goal) {
   while (!open.empty()) {
     int cur = open.top().second;
     open.pop();
-    if (done[cur]) continue;  // already handled with a cheaper cost
+    if (done[cur]) continue;
     done[cur] = true;
     res.expansions++;
     if (cur == goal_idx) break;
@@ -82,7 +77,6 @@ PlanResult planAStar(const CostMap& map, Point start, Point goal) {
   }
 
   if (came_from[goal_idx] != -1 || goal_idx == start_idx) {
-    // walk back from the goal to the start
     std::vector<Point> path;
     int i = goal_idx;
     while (i != -1) {
@@ -92,7 +86,7 @@ PlanResult planAStar(const CostMap& map, Point start, Point goal) {
       i = came_from[i];
     }
     std::reverse(path.begin(), path.end());
-    path.front() = start;  // use the exact start and goal, not the cell centers
+    path.front() = start;
     path.back() = goal;
     res.path = path;
     res.success = true;

@@ -55,3 +55,36 @@ TEST(PurePursuit, TurnsInPlaceWhenFacingAway) {
   EXPECT_EQ(c.v, 0.0);
   EXPECT_NE(c.w, 0.0);
 }
+
+TEST(Mpc, FollowsLPath) {
+  Mpc mpc(Mpc::Params{}, ControlLimits{});
+  bool reached;
+  double worst = simulate(mpc, lPath(), {0, 0.3, 0}, reached);
+  EXPECT_TRUE(reached);
+  EXPECT_LT(worst, 0.4);
+}
+
+TEST(Mpc, RespectsLimits) {
+  ControlLimits lim;
+  Mpc mpc(Mpc::Params{}, lim);
+  Cmd c = mpc.compute(lPath(), {0, 0, M_PI});
+  EXPECT_LE(c.v, lim.v_max + 1e-9);
+  EXPECT_GE(c.v, 0.0);
+  EXPECT_LE(std::abs(c.w), lim.w_max + 1e-9);
+}
+
+TEST(Mpc, DoesntCircleWhenHeadingCrossesPi) {
+  std::vector<Point> path;
+  for (int i = 0; i <= 40; ++i) path.push_back({-i * 0.1, 0});
+  Mpc mpc(Mpc::Params{}, ControlLimits{});
+  Pose2D pose{0, 0, -3.10};
+  double turned = 0;
+  for (int i = 0; i < 400; ++i) {
+    Cmd c = mpc.compute(path, pose);
+    turned += c.w * 0.05;
+    pose.x += c.v * std::cos(pose.theta) * 0.05;
+    pose.y += c.v * std::sin(pose.theta) * 0.05;
+    pose.theta += c.w * 0.05;
+  }
+  EXPECT_LT(std::abs(turned), 0.5);
+}
