@@ -30,7 +30,7 @@ target_include_directories(nav_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(nav_core Eigen3::Eigen)
 
-foreach(node wheel_odom_node ekf_node mapper_node planner_node)
+foreach(node wheel_odom_node ekf_node mapper_node planner_node controller_node)
   add_executable(${node} nodes/${node}.cpp)
   target_link_libraries(${node} nav_core)
   ament_target_dependencies(${node} ${ros_deps})
@@ -44,6 +44,8 @@ install(TARGETS bench_planners DESTINATION lib/${PROJECT_NAME})
 add_executable(compare_controllers tools/compare_controllers.cpp)
 target_link_libraries(compare_controllers nav_core)
 install(TARGETS compare_controllers DESTINATION lib/${PROJECT_NAME})
+
+install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
