@@ -1,0 +1,57 @@
+#include <gtest/gtest.h>
+#include <cmath>
+#include "nav_stack/controllers.hpp"
+
+using namespace nav_stack;
+
+template <typename C>
+double simulate(C& ctrl, const std::vector<Point>& path, Pose2D pose, bool& reached) {
+  double worst = 0;
+  reached = false;
+  for (int i = 0; i < 2000; ++i) {
+    Cmd c = ctrl.compute(path, pose);
+    pose.x += c.v * std::cos(pose.theta) * 0.05;
+    pose.y += c.v * std::sin(pose.theta) * 0.05;
+    pose.theta += c.w * 0.05;
+    worst = std::max(worst, crossTrackError(path, pose));
+    if (std::hypot(pose.x - path.back().x, pose.y - path.back().y) < 0.2) {
+      reached = true;
+      break;
+    }
+  }
+  return worst;
+}
+
+static std::vector<Point> lPath() {
+  std::vector<Point> p;
+  for (int i = 0; i <= 40; ++i) p.push_back({i * 0.1, 0});
+  for (int i = 1; i <= 40; ++i) p.push_back({4, i * 0.1});
+  return p;
+}
+
+TEST(CrossTrackError, DistanceToSegmentsNotPoints) {
+  std::vector<Point> path = {{0, 0}, {2, 0}};
+  EXPECT_NEAR(crossTrackError(path, {1.0, 0.3, 0}), 0.3, 1e-9);
+  EXPECT_NEAR(crossTrackError(path, {3.0, 0.0, 0}), 1.0, 1e-9);
+}
+
+TEST(ClosestIndex, FindsNearestPoint) {
+  auto p = lPath();
+  EXPECT_EQ(closestIndex(p, {1.02, 0.1, 0}), 10u);
+  EXPECT_EQ(closestIndex(p, {4.1, 2.0, 0}), 60u);
+}
+
+TEST(PurePursuit, FollowsLPath) {
+  PurePursuit pp(PurePursuit::Params{}, ControlLimits{});
+  bool reached;
+  double worst = simulate(pp, lPath(), {0, 0.3, 0}, reached);
+  EXPECT_TRUE(reached);
+  EXPECT_LT(worst, 0.4);
+}
+
+TEST(PurePursuit, TurnsInPlaceWhenFacingAway) {
+  PurePursuit pp(PurePursuit::Params{}, ControlLimits{});
+  Cmd c = pp.compute(lPath(), {0, 0, M_PI});
+  EXPECT_EQ(c.v, 0.0);
+  EXPECT_NE(c.w, 0.0);
+}

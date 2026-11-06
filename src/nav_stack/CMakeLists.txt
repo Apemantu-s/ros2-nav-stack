@@ -23,7 +23,8 @@ add_library(nav_core
   src/grid.cpp
   src/costmap.cpp
   src/astar.cpp
-  src/rrt_star.cpp)
+  src/rrt_star.cpp
+  src/pure_pursuit.cpp)
 target_include_directories(nav_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(nav_core Eigen3::Eigen)
@@ -44,7 +45,8 @@ if(BUILD_TESTING)
   ament_add_gtest(test_nav_core
     test/test_ekf.cpp
     test/test_mapper.cpp
-    test/test_planners.cpp)
+    test/test_planners.cpp
+    test/test_controllers.cpp)
   target_link_libraries(test_nav_core nav_core)
 endif()
 
