@@ -32,7 +32,6 @@ def yaw_of(q):
 
 
 class Recorder(Node):
-    """subscribes to everything we score and just stores it in lists"""
 
     def __init__(self):
         super().__init__("trial_recorder", parameter_overrides=[
@@ -52,8 +51,10 @@ class Recorder(Node):
         self.create_subscription(Odometry, "/ekf/odom", lambda m: self.save_pose(self.ekf, m), 50)
         self.create_subscription(Odometry, "/wheel/odom", lambda m: self.save_pose(self.wheel, m), 50)
         self.create_subscription(Contacts, "/bumper", self.on_bumper, 50)
-        self.create_subscription(Float64, "/nav/tracking_error", lambda m: self.tracking_errors.append(m.data), 50)
-        self.create_subscription(Float64MultiArray, "/planner/stats", lambda m: self.plan_stats.append(list(m.data)), 50)
+        self.create_subscription(Float64, "/nav/tracking_error",
+                                 lambda m: self.tracking_errors.append(m.data), 50)
+        self.create_subscription(Float64MultiArray, "/planner/stats",
+                                 lambda m: self.plan_stats.append(list(m.data)), 50)
         self.create_subscription(String, "/nav/status", self.on_status, LATCHED)
         self.create_subscription(OccupancyGrid, "/map", self.on_map, LATCHED)
         self.goal_pub = self.create_publisher(PoseStamped, "/goal_pose", 10)
@@ -154,6 +155,21 @@ def min_clearance(gt, obstacles):
     return float(per_pose[i]), float(gt[i, 0])
 
 
+def kill_slot(partition):
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit() or int(pid) == os.getpid():
+            continue
+        try:
+            env = open(f"/proc/{pid}/environ", "rb").read().split(b"\0")
+        except OSError:
+            continue
+        if f"GZ_PARTITION={partition}".encode() in env:
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except OSError:
+                pass
+
+
 def save_grid(m, path):
     np.savez_compressed(path, grid=np.array(m.data, dtype=np.int8).reshape(m.info.height, m.info.width),
                         resolution=m.info.resolution,
@@ -171,6 +187,7 @@ def main():
     ap.add_argument("--rtf", type=float, default=4.0)
     ap.add_argument("--timeout", type=float, default=150.0, help="sim seconds")
     ap.add_argument("--out", default="results/trials")
+    ap.add_argument("--slot", type=int, default=0, help="parallel slot, picks domain id and partition")
     a = ap.parse_args()
 
     tag = f"{a.seed:04d}_{a.planner}_{a.controller}"
@@ -184,6 +201,12 @@ def main():
                     "--obstacles", str(a.obstacles)], check=True)
     world = json.load(open(work + "/world.json"))
     start = world["start"]
+
+    if a.slot >= 0:
+        os.environ["ROS_DOMAIN_ID"] = str(10 + a.slot)
+        os.environ["GZ_PARTITION"] = f"trial{a.slot}"
+        os.environ["ROS_AUTOMATIC_DISCOVERY_RANGE"] = "LOCALHOST"
+        kill_slot(os.environ["GZ_PARTITION"])
 
     commands = [
         ["ros2", "launch", "nav_sim", "sim.launch.py", f"world:={world_sdf}"],
@@ -199,7 +222,7 @@ def main():
     result = {"seed": a.seed, "planner": a.planner, "controller": a.controller,
               "use_imu": a.use_imu == "true", "obstacles": a.obstacles}
     wall_start = time.time()
-    wall_limit = a.timeout * 3 + 120
+    wall_limit = a.timeout * 3 + 120 
 
     def spin_for(sim_seconds):
         t0 = rec.now()
@@ -303,7 +326,7 @@ def main():
 
     with open(f"{a.out}/{tag}.json", "w") as f:
         json.dump(result, f, indent=1)
-    print(json.dumps({k: result.get(k) for k in ["seed", "outcome", "success", "collisions", "min_clearance", "time_to_goal", "true_goal_error"]}))
+    print(json.dumps({k: result.get(k) for k in ["seed", "outcome", "success", "collisions","min_clearance", "time_to_goal", "true_goal_error"]}))
 
 
 if __name__ == "__main__":
