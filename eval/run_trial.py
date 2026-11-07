@@ -46,6 +46,7 @@ class Recorder(Node):
         self.status = None
         self.status_time = None
         self.map = None
+        self.slam_map = None
 
         self.create_subscription(Odometry, "/ground_truth", lambda m: self.save_pose(self.gt, m), 50)
         self.create_subscription(Odometry, "/ekf/odom", lambda m: self.save_pose(self.ekf, m), 50)
@@ -57,6 +58,7 @@ class Recorder(Node):
                                  lambda m: self.plan_stats.append(list(m.data)), 50)
         self.create_subscription(String, "/nav/status", self.on_status, LATCHED)
         self.create_subscription(OccupancyGrid, "/map", self.on_map, LATCHED)
+        self.create_subscription(OccupancyGrid, "/slam_map", self.on_slam_map, LATCHED)
         self.goal_pub = self.create_publisher(PoseStamped, "/goal_pose", 10)
 
     def now(self):
@@ -79,6 +81,9 @@ class Recorder(Node):
 
     def on_map(self, m):
         self.map = m
+
+    def on_slam_map(self, m):
+        self.slam_map = m
 
     def send_goal(self, x, y):
         goal = PoseStamped()
@@ -171,6 +176,7 @@ def kill_slot(partition):
 
 
 def save_grid(m, path):
+    """the map as a numpy file: the grid, plus what you need to turn cells into metres"""
     np.savez_compressed(path, grid=np.array(m.data, dtype=np.int8).reshape(m.info.height, m.info.width),
                         resolution=m.info.resolution,
                         origin=np.array([m.info.origin.position.x, m.info.origin.position.y]),
@@ -188,11 +194,17 @@ def main():
     ap.add_argument("--timeout", type=float, default=150.0, help="sim seconds")
     ap.add_argument("--out", default="results/trials")
     ap.add_argument("--slot", type=int, default=0, help="parallel slot, picks domain id and partition")
+    ap.add_argument("--return-home", action="store_true", help="drive back to the start after the goal")
+    ap.add_argument("--slam", action="store_true", help="also run slam_toolbox and save its map")
     a = ap.parse_args()
 
     tag = f"{a.seed:04d}_{a.planner}_{a.controller}"
     if a.use_imu != "true":
         tag += "_noimu"
+    if a.return_home:
+        tag += "_home"
+    if a.slam:
+        tag += "_slam"
     os.makedirs(a.out, exist_ok=True)
     work = "/tmp/trial_" + tag
     os.makedirs(work, exist_ok=True)
@@ -213,6 +225,8 @@ def main():
         ["ros2", "launch", "nav_stack", "nav.launch.py", f"planner:={a.planner}",
          f"controller:={a.controller}", f"use_imu:={a.use_imu}"],
     ]
+    if a.slam:
+        commands.append(["ros2", "launch", "nav_stack", "slam.launch.py"])
     log = open(work + "/launch.log", "w")
     procs = [subprocess.Popen(c, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
              for c in commands]
@@ -222,12 +236,21 @@ def main():
     result = {"seed": a.seed, "planner": a.planner, "controller": a.controller,
               "use_imu": a.use_imu == "true", "obstacles": a.obstacles}
     wall_start = time.time()
-    wall_limit = a.timeout * 3 + 120 
+    wall_limit = a.timeout * 3 + 120
 
     def spin_for(sim_seconds):
         t0 = rec.now()
         while rec.now() - t0 < sim_seconds and time.time() - wall_start < wall_limit:
             rclpy.spin_once(rec, timeout_sec=0.05)
+
+    def drive_until_reached():
+        """wait for a "reached" that comes after this call. returns reached or timeout"""
+        t0 = rec.now()
+        while rec.now() - t0 < a.timeout and time.time() - wall_start < wall_limit:
+            rclpy.spin_once(rec, timeout_sec=0.05)
+            if rec.status == "reached" and rec.status_time > t0:
+                return "reached"
+        return "timeout"
 
     try:
         while (not rec.ekf or not rec.gt) and time.time() - wall_start < 60:
@@ -239,13 +262,16 @@ def main():
         t_goal = rec.now()
         gx, gy = world_to_odom(start, world["goal"]["x"], world["goal"]["y"])
         rec.send_goal(gx, gy)
-        outcome = "timeout"
-        while rec.now() - t_goal < a.timeout and time.time() - wall_start < wall_limit:
-            rclpy.spin_once(rec, timeout_sec=0.05)
-            if rec.status == "reached" and rec.status_time > t_goal:
-                outcome = "reached"
-                break
+        outcome = drive_until_reached()
         reach_time = rec.status_time
+
+        if a.return_home and outcome == "reached":
+            rec.send_goal(0.0, 0.0)
+            result["home_outcome"] = drive_until_reached()
+            last = rec.gt[-1]
+            result["home_true_error"] = math.hypot(last[1] - start["x"], last[2] - start["y"])
+        if a.slam:
+            spin_for(3.0)
         t_end = rec.now()
         if outcome == "timeout" and t_end - t_goal < 1.0:
             raise RuntimeError("sim clock stuck")
@@ -306,6 +332,8 @@ def main():
 
         if rec.map is not None:
             save_grid(rec.map, f"{a.out}/{tag}_map.npz")
+        if rec.slam_map is not None:
+            save_grid(rec.slam_map, f"{a.out}/{tag}_slammap.npz")
     except Exception as ex:
         result.setdefault("outcome", "error")
         result["error"] = repr(ex)
@@ -326,7 +354,7 @@ def main():
 
     with open(f"{a.out}/{tag}.json", "w") as f:
         json.dump(result, f, indent=1)
-    print(json.dumps({k: result.get(k) for k in ["seed", "outcome", "success", "collisions","min_clearance", "time_to_goal", "true_goal_error"]}))
+    print(json.dumps({k: result.get(k) for k in ["seed", "outcome", "success", "collisions", "min_clearance", "time_to_goal", "true_goal_error"]}))
 
 
 if __name__ == "__main__":
