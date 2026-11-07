@@ -15,6 +15,23 @@ size_t closestIndex(const std::vector<Point>& path, const Pose2D& pose, size_t f
   return best;
 }
 
+std::vector<Point> resamplePath(const std::vector<Point>& path, double spacing) {
+  std::vector<Point> out;
+  if (path.empty()) return out;
+  for (size_t i = 0; i + 1 < path.size(); ++i) {
+    const Point& a = path[i];
+    const Point& b = path[i + 1];
+    int n = static_cast<int>(std::ceil(std::hypot(b.x - a.x, b.y - a.y) / spacing));
+    if (n < 1) n = 1;
+    for (int k = 0; k < n; ++k) {
+      double t = static_cast<double>(k) / n;
+      out.push_back({a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)});
+    }
+  }
+  out.push_back(path.back());
+  return out;
+}
+
 double crossTrackError(const std::vector<Point>& path, const Pose2D& pose) {
   if (path.empty()) return 0.0;
   if (path.size() == 1) return std::hypot(path[0].x - pose.x, path[0].y - pose.y);

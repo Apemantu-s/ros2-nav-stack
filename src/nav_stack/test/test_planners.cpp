@@ -78,6 +78,7 @@ TEST(RrtStar, MoreIterationsGiveShorterPaths) {
   few.max_iterations = 300;
   many.max_iterations = 3000;
   few.time_budget_ms = many.time_budget_ms = 5000;
+  few.shortcut = many.shortcut = false;
   double few_total = 0, many_total = 0;
   for (int seed = 1; seed <= 10; ++seed) {
     std::mt19937 rng_a(seed), rng_b(seed);
@@ -89,4 +90,24 @@ TEST(RrtStar, MoreIterationsGiveShorterPaths) {
   }
   EXPECT_LT(many_total, few_total);
   EXPECT_LT(many_total / 10, 5.66 * 1.05);
+}
+
+
+TEST(Shortcut, ZigZagBecomesStraight) {
+  GridInfo g;
+  g.width = g.height = 100;
+  g.resolution = 0.05;
+  std::vector<int8_t> occ(g.width * g.height, 0);
+  CostMap cm(g, occ, CostMap::Params{});
+  std::vector<Point> zz = {{0.5, 0.5}, {1.5, 1.0}, {2.5, 0.5}, {3.5, 1.0}, {4.5, 0.5}};
+  auto s = shortcutPath(cm, zz);
+  ASSERT_EQ(s.size(), 2u);
+  EXPECT_NEAR(pathLength(s), 4.0, 1e-9);
+}
+
+TEST(Shortcut, DoesntCutThroughWall) {
+  CostMap cm = wallMap();
+  std::vector<Point> around = {{2, 2}, {5, 9}, {8, 2}};
+  auto s = shortcutPath(cm, around);
+  EXPECT_EQ(s.size(), 3u);
 }

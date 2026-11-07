@@ -88,3 +88,23 @@ TEST(Mpc, DoesntCircleWhenHeadingCrossesPi) {
   }
   EXPECT_LT(std::abs(turned), 0.5);
 }
+
+
+TEST(ResamplePath, AddsPointsButKeepsShape) {
+  std::vector<Point> path = {{0, 0}, {1, 0}, {1, 0.5}};
+  auto r = resamplePath(path, 0.1);
+  EXPECT_EQ(r.size(), 16u);
+  for (size_t i = 1; i < r.size(); ++i)
+    EXPECT_LE(std::hypot(r[i].x - r[i - 1].x, r[i].y - r[i - 1].y), 0.1 + 1e-9);
+  EXPECT_DOUBLE_EQ(r.back().x, 1.0);
+  EXPECT_DOUBLE_EQ(r.back().y, 0.5);
+}
+
+TEST(Mpc, FollowsSparsePathAfterResampling) {
+  std::vector<Point> sparse = {{0, 0}, {4, 0}, {4, 4}};
+  Mpc mpc(Mpc::Params{}, ControlLimits{});
+  bool reached;
+  double err = simulate(mpc, resamplePath(sparse, 0.05), {0, 0, 0}, reached);
+  EXPECT_TRUE(reached);
+  EXPECT_LT(err, 0.15);
+}

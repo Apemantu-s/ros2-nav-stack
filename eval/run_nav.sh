@@ -46,5 +46,5 @@ if v:
     print(f"tracking error: mean {sum(v)/len(v):.3f} m, max {max(v):.3f} m ({len(v)} ticks)")
 PY
 
-pkill -f "ros2 launch|ros2 topic|gz sim|parameter_bridge|_node|static_transform"
+pkill -f "ros2 launch|ros2 topic|gz sim|parameter_bridge|lib/nav_stack/|static_transform"
 sleep 1

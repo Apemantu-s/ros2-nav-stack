@@ -12,7 +12,6 @@ struct Point {
 
 double pathLength(const std::vector<Point>& path);
 
-
 class CostMap {
  public:
   struct Params {
@@ -56,8 +55,12 @@ struct RrtStarParams {
   double max_rewire_radius = 1.0;
   double time_budget_ms = 300.0;
   bool stop_at_first_solution = false;
+  bool shortcut = true;
 };
 
-PlanResult planRrtStar(const CostMap& map, Point start, Point goal, const RrtStarParams& p, std::mt19937& rng);
+std::vector<Point> shortcutPath(const CostMap& map, const std::vector<Point>& path);
+
+PlanResult planRrtStar(const CostMap& map, Point start, Point goal, const RrtStarParams& p,
+                       std::mt19937& rng);
 
 }

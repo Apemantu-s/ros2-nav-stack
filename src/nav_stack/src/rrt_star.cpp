@@ -121,11 +121,26 @@ PlanResult planRrtStar(const CostMap& map, Point start, Point goal, const RrtSta
     for (int i = best_goal; i != -1; i = tree[i].parent) path.push_back(tree[i].p);
     std::reverse(path.begin(), path.end());
     path.push_back(goal);
+    if (p.shortcut) path = shortcutPath(map, path);
     res.path = path;
     res.success = true;
   }
   res.time_ms = elapsed_ms();
   return res;
+}
+
+std::vector<Point> shortcutPath(const CostMap& map, const std::vector<Point>& path) {
+  if (path.size() < 3) return path;
+  std::vector<Point> out;
+  out.push_back(path[0]);
+  size_t i = 0;
+  while (i + 1 < path.size()) {
+    size_t j = path.size() - 1;
+    while (j > i + 1 && !map.segmentFree(path[i].x, path[i].y, path[j].x, path[j].y)) j--;
+    out.push_back(path[j]);
+    i = j;
+  }
+  return out;
 }
 
 }

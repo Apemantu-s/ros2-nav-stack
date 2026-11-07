@@ -19,6 +19,7 @@ struct ControlLimits {
 };
 
 size_t closestIndex(const std::vector<Point>& path, const Pose2D& pose, size_t from = 0);
+std::vector<Point> resamplePath(const std::vector<Point>& path, double spacing);
 double crossTrackError(const std::vector<Point>& path, const Pose2D& pose);
 
 class PurePursuit {
@@ -35,6 +36,7 @@ class PurePursuit {
   Params p_;
   ControlLimits lim_;
 };
+
 
 class Mpc {
  public:

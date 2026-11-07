@@ -1,3 +1,4 @@
+// controller node: follows /plan with pure pursuit or mpc, publishes cmd_vel
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -35,6 +36,7 @@ class ControllerNode : public rclcpp::Node {
         "plan", rclcpp::QoS(1).transient_local(), [this](nav_msgs::msg::Path::SharedPtr m) {
           path_.clear();
           for (const auto& p : m->poses) path_.push_back({p.pose.position.x, p.pose.position.y});
+          path_ = nav_stack::resamplePath(path_, 0.05);
         });
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
         "ekf/odom", 20, [this](nav_msgs::msg::Odometry::SharedPtr m) { odom_ = m; });
@@ -49,8 +51,7 @@ class ControllerNode : public rclcpp::Node {
         });
     scan_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
         "scan", rclcpp::SensorDataQoS(), [this](sensor_msgs::msg::LaserScan::SharedPtr s) { scan_ = s; });
-    timer_ = rclcpp::create_timer(this, get_clock(), std::chrono::duration<double>(1.0 / rate),
-                                  std::bind(&ControllerNode::tick, this));
+    timer_ = rclcpp::create_timer(this, get_clock(), std::chrono::duration<double>(1.0 / rate), std::bind(&ControllerNode::tick, this));
     setStatus("idle");
   }
 
@@ -78,8 +79,7 @@ class ControllerNode : public rclcpp::Node {
       return;
     }
     const auto& q = odom_->pose.pose.orientation;
-    nav_stack::Pose2D pose{odom_->pose.pose.position.x, odom_->pose.pose.position.y,
-                           2 * std::atan2(q.z, q.w)};
+    nav_stack::Pose2D pose{odom_->pose.pose.position.x, odom_->pose.pose.position.y, 2 * std::atan2(q.z, q.w)};
 
     if (std::hypot(goal_.x - pose.x, goal_.y - pose.y) < goal_tol_) {
       active_ = false;
