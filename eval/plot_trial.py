@@ -11,7 +11,7 @@ import numpy as np
 from matplotlib.patches import Circle, Polygon
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "nav_sim", "scripts"))
-from make_world import make, box_corners
+from make_world import make, box_corners  # noqa: E402
 
 
 def main(prefix, out):
@@ -42,12 +42,24 @@ def main(prefix, out):
         for col, name, sty in [("gt", "ground truth", "g-"), ("ekf", "EKF", "b--"), ("wheel", "wheel odom", "m:")]:
             x, y = to_world(t[col + "_x"], t[col + "_y"])
             ax.plot(x, y, sty, lw=1.5, label=name)
+        if res.get("min_clearance_time") is not None and len(t) > 1:
+            cx, cy = to_world(np.interp(res["min_clearance_time"], t["t"], t["gt_x"]),
+                              np.interp(res["min_clearance_time"], t["t"], t["gt_y"]))
+            ax.add_patch(Circle((cx, cy), 0.2, fill=False, ec="orange", lw=2,
+                                label=f"closest approach ({1000 * res['min_clearance']:.1f} mm)"))
     ax.plot(s["x"], s["y"], "go", ms=8)
     ax.plot(world["goal"]["x"], world["goal"]["y"], "r*", ms=14)
     ax.set_xlim(-5.5, 5.5)
     ax.set_ylim(-5.5, 5.5)
     ax.set_aspect("equal")
-    ax.set_title(f"seed {res['seed']}  {res['planner']} + {res['controller']}  -> {res['outcome']}")
+    if res.get("success"):
+        verdict = "success"
+    elif res.get("true_goal_error") is not None:
+        verdict = (f"FAIL: {res['outcome']}, {res.get('collisions', 0)} bumper hits, "
+                   f"{res['true_goal_error']:.2f} m from goal")
+    else:
+        verdict = f"FAIL: {res.get('outcome')} {res.get('error', '')}"
+    ax.set_title(f"seed {res['seed']}  {res['planner']} + {res['controller']}\n{verdict}", fontsize=10)
     ax.legend(loc="lower left", fontsize=7)
     fig.tight_layout()
     fig.savefig(out, dpi=110)
