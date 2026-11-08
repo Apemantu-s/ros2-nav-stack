@@ -4,3 +4,7 @@ log/
 __pycache__/
 results/
 *.png
+results/
+results_*/
+check/
+run_all.log
